@@ -10,7 +10,7 @@ const io = new Server(server, { cors: { origin: "*" } });
 app.use(express.static(path.join(__dirname, "public")));
 
 const rooms = new Map();
-const MIN_PLAYERS = 3; // players excluding host
+const MIN_PLAYERS = 3; // excluding host
 
 function now(){ return Date.now(); }
 function randomCode(length = 6) {
@@ -27,36 +27,31 @@ function uniqueCode() {
 function roomState(code) {
   const room = rooms.get(code);
   if (!room) return null;
-
-  const hostName = room.hostName || "Host";
   const players = Array.from(room.players.values()).map(p => p.name);
-
   return {
     code: room.code,
     started: room.started,
-    hostName,
-    playerCount: players.length, // excludes host
+    hostName: room.hostName || "Host",
+    playerCount: players.length,
     players
   };
 }
 
 io.on("connection", (socket) => {
-
   socket.on("create_room", ({ hostName, word }, cb) => {
     hostName = String(hostName||"").trim().slice(0, 20);
     word = String(word||"").trim().slice(0, 30);
     if (!hostName || !word) return cb({ ok: false, error: "Escribe tu nombre y la palabra." });
 
     const code = uniqueCode();
-    const room = {
+    rooms.set(code, {
       code,
       word,
       started: false,
       hostId: socket.id,
       hostName,
-      players: new Map() // ONLY players (host excluded)
-    };
-    rooms.set(code, room);
+      players: new Map()
+    });
 
     socket.join(code);
     socket.data.roomCode = code;
@@ -69,17 +64,14 @@ io.on("connection", (socket) => {
   socket.on("join_room", ({ code, name }, cb) => {
     code = String(code||"").trim().toUpperCase();
     name = String(name||"").trim().slice(0, 20);
-
     if (!rooms.has(code)) return cb({ ok: false, error: "Código no válido." });
+
     const room = rooms.get(code);
     if (room.started) return cb({ ok: false, error: "La partida ya empezó." });
     if (!name) return cb({ ok: false, error: "Escribe tu nombre." });
-
-    // prevent host from joining as player on same socket
-    if (socket.id === room.hostId) return cb({ ok: false, error: "El host no participa como jugador." });
+    if (socket.id === room.hostId) return cb({ ok:false, error:"El host no participa como jugador." });
 
     room.players.set(socket.id, { name, joinedAt: now() });
-
     socket.join(code);
     socket.data.roomCode = code;
     socket.data.isHost = false;
@@ -95,25 +87,20 @@ io.on("connection", (socket) => {
     if (socket.id !== room.hostId) return cb?.({ ok:false, error:"Solo el host puede iniciar." });
 
     const playerIds = Array.from(room.players.keys());
-    if (playerIds.length < MIN_PLAYERS) {
-      return cb({ ok: false, error: `Mínimo ${MIN_PLAYERS} jugadores (sin contar al host).` });
-    }
+    if (playerIds.length < MIN_PLAYERS) return cb({ ok:false, error:`Mínimo ${MIN_PLAYERS} jugadores (sin contar al host).` });
 
     room.started = true;
 
     const impostor = playerIds[Math.floor(Math.random() * playerIds.length)];
     for (const [sid, p] of room.players.entries()) {
-      const shown = sid === impostor ? "IMPOSTOR" : room.word;
-      io.to(sid).emit("reveal", { code, name: p.name, shown });
+      const role = (sid === impostor) ? "IMPOSTOR" : "CREWMATE";
+      const shown = (role === "IMPOSTOR") ? "IMPOSTOR" : room.word;
+      io.to(sid).emit("reveal", { code, name: p.name, role, shown });
     }
 
-    // Host gets an info panel (no secret word revealed)
-    io.to(room.hostId).emit("host_started", {
-      code,
-      playerCount: playerIds.length
-    });
+    io.to(room.hostId).emit("host_started", { code, playerCount: playerIds.length });
+    cb({ ok:true });
 
-    cb({ ok: true });
     io.to(code).emit("room_update", roomState(code));
   });
 
@@ -133,14 +120,12 @@ function leaveInternal(socket, code){
   if (!code || !rooms.has(code)) return;
   const room = rooms.get(code);
 
-  // If host leaves -> close room
-  if (socket.id === room.hostId) {
+  if (socket.id === room.hostId){
     rooms.delete(code);
     io.to(code).emit("room_closed");
     return;
   }
 
-  // else remove from players
   room.players.delete(socket.id);
   io.to(code).emit("room_update", roomState(code));
 }
