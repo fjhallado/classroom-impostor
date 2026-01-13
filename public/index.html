@@ -6,8 +6,6 @@
 <title>Impostor • Aula</title>
 <style>
   :root{
-    --bg0:#050712;
-    --bg1:#0b1024;
     --card: rgba(255,255,255,.08);
     --stroke: rgba(255,255,255,.14);
     --text: rgba(255,255,255,.92);
@@ -32,188 +30,90 @@
       linear-gradient(180deg, rgba(5,7,18,.86), rgba(5,7,18,.96));
     overflow-x:hidden;
   }
-  .stars{
-    position:fixed; inset:0;
+  .stars{position:fixed; inset:0; opacity:.45; pointer-events:none;
     background-image:
       radial-gradient(2px 2px at 20px 30px, rgba(255,255,255,.35), transparent 60%),
       radial-gradient(1px 1px at 130px 80px, rgba(255,255,255,.22), transparent 60%),
       radial-gradient(1px 1px at 260px 140px, rgba(255,255,255,.18), transparent 60%),
       radial-gradient(2px 2px at 420px 200px, rgba(255,255,255,.28), transparent 60%),
       radial-gradient(1px 1px at 560px 260px, rgba(255,255,255,.20), transparent 60%);
-    opacity:.45;
-    pointer-events:none;
-    filter: blur(.2px);
   }
   .wrap{max-width:980px;margin:0 auto;padding:26px 16px 60px;position:relative}
   header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
-  .brand{
-    display:flex;align-items:center;gap:12px;
-  }
-  .logo{
-    width:44px;height:44px;border-radius:14px;
-    background: linear-gradient(180deg, rgba(34,211,238,.95), rgba(99,102,241,.85));
-    box-shadow: 0 12px 40px rgba(34,211,238,.15);
-    display:grid;place-items:center;font-weight:900;
-  }
+  .brand{display:flex;align-items:center;gap:12px;}
+  .logo{width:44px;height:44px;border-radius:14px;background: linear-gradient(180deg, rgba(34,211,238,.95), rgba(99,102,241,.85));
+    box-shadow: 0 12px 40px rgba(34,211,238,.15);display:grid;place-items:center;font-weight:900;}
   h1{margin:0;font-size:clamp(28px,3vw,42px);letter-spacing:.2px}
   .subtitle{margin:8px 0 0;color:var(--muted);max-width:70ch}
-  .pill{
-    display:inline-flex;align-items:center;gap:8px;
-    background: rgba(255,255,255,.08);
-    border: 1px solid var(--stroke);
-    padding:8px 12px;border-radius:999px;
-    color: var(--muted);
-  }
-
-  .card{
-    background: linear-gradient(180deg, var(--card), rgba(255,255,255,.05));
-    border: 1px solid var(--stroke);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    padding:18px;
-    backdrop-filter: blur(12px);
-  }
-  .panel{
-    margin-top:18px;
-    display:grid;
-    grid-template-columns: 1fr;
-    gap:16px;
-  }
-  .menuGrid{
-    display:grid;
-    grid-template-columns: 1fr 1fr;
-    gap:16px;
-    margin-top:12px;
-  }
-  .bigBtn{
-    padding:18px 16px;
-    border-radius: 18px;
-    border:1px solid rgba(255,255,255,.14);
-    cursor:pointer;
-    color: var(--text);
-    background: rgba(255,255,255,.06);
-    transition: transform .08s ease, filter .12s ease;
-    text-align:left;
-  }
+  .pill{display:inline-flex;align-items:center;gap:8px;background: rgba(255,255,255,.08);border: 1px solid var(--stroke);
+    padding:8px 12px;border-radius:999px;color: var(--muted);}
+  .card{background: linear-gradient(180deg, var(--card), rgba(255,255,255,.05));border: 1px solid var(--stroke);
+    border-radius: var(--radius);box-shadow: var(--shadow);padding:18px;backdrop-filter: blur(12px);}
+  .panel{margin-top:18px;display:grid;grid-template-columns: 1fr;gap:16px;}
+  .menuGrid{display:grid;grid-template-columns: 1fr 1fr;gap:16px;margin-top:12px;}
+  .bigBtn{padding:18px 16px;border-radius: 18px;border:1px solid rgba(255,255,255,.14);cursor:pointer;color: var(--text);
+    background: rgba(255,255,255,.06);transition: transform .08s ease, filter .12s ease;text-align:left;}
   .bigBtn:hover{filter: brightness(1.06)}
   .bigBtn:active{transform: translateY(1px)}
   .bigBtn .t{font-weight:900;font-size:18px;margin:0 0 6px}
   .bigBtn .d{margin:0;color:var(--muted);line-height:1.35}
-  .bigBtn.create{box-shadow: 0 0 0 1px rgba(34,211,238,.12) inset}
-  .bigBtn.join{box-shadow: 0 0 0 1px rgba(251,113,133,.12) inset}
-
   label{display:block;font-weight:800;margin:12px 0 6px;color:rgba(255,255,255,.88)}
-  input{
-    width:100%;
-    padding:12px 12px;
-    border-radius: 14px;
-    border: 1px solid rgba(255,255,255,.18);
-    background: rgba(10,14,28,.55);
-    color: var(--text);
-    font-size:16px;
-    outline:none;
-  }
+  input{width:100%;padding:12px 12px;border-radius: 14px;border: 1px solid rgba(255,255,255,.18);background: rgba(10,14,28,.55);
+    color: var(--text);font-size:16px;outline:none;}
   input::placeholder{color:rgba(255,255,255,.52)}
-  input:focus{
-    border-color: rgba(34,211,238,.55);
-    box-shadow: 0 0 0 4px rgba(34,211,238,.16);
-  }
-
-  button{
-    width:100%;
-    padding:12px 14px;
-    border-radius: 14px;
-    border: 1px solid rgba(255,255,255,.14);
-    cursor:pointer;
-    color:#061019;
-    font-weight:950;
-    font-size:16px;
-    background: linear-gradient(180deg, rgba(34,211,238,.95), rgba(99,102,241,.85));
-    transition: transform .08s ease, filter .12s ease;
-    margin-top:12px;
-  }
+  input:focus{border-color: rgba(34,211,238,.55);box-shadow: 0 0 0 4px rgba(34,211,238,.16);}
+  button{width:100%;padding:12px 14px;border-radius: 14px;border: 1px solid rgba(255,255,255,.14);cursor:pointer;color:#061019;
+    font-weight:950;font-size:16px;background: linear-gradient(180deg, rgba(34,211,238,.95), rgba(99,102,241,.85));
+    transition: transform .08s ease, filter .12s ease;margin-top:12px;}
   button:hover{filter: brightness(1.05)}
   button:active{transform: translateY(1px)}
-  .ghost{
-    background: rgba(255,255,255,.08);
-    color: var(--text);
-    border: 1px solid rgba(255,255,255,.18);
-  }
-  .danger{
-    background: linear-gradient(180deg, rgba(239,68,68,.95), rgba(190,18,60,.85));
-    color:#fff;
-  }
+  .ghost{background: rgba(255,255,255,.08);color: var(--text);border: 1px solid rgba(255,255,255,.18);}
+  .danger{background: linear-gradient(180deg, rgba(239,68,68,.95), rgba(190,18,60,.85));color:#fff;}
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
   .hidden{display:none}
   .err{color:#fecaca;font-weight:900;margin-top:10px}
-
-  .code{
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-weight: 950;
-    letter-spacing: 2px;
-  }
-
-  .lobbyTop{
-    display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;
-  }
+  .code{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;font-weight: 950;letter-spacing: 2px;}
+  .lobbyTop{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;}
   .chipRow{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-  .chip{
-    display:inline-flex;align-items:center;gap:8px;
-    padding:8px 10px;border-radius:999px;
-    border:1px solid rgba(255,255,255,.16);
-    background: rgba(255,255,255,.06);
-    color: rgba(255,255,255,.90);
-  }
+  .chip{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.16);
+    background: rgba(255,255,255,.06);color: rgba(255,255,255,.90);}
   .dot{width:10px;height:10px;border-radius:999px;background: rgba(34,197,94,.95);box-shadow:0 0 0 4px rgba(34,197,94,.14)}
-
-  .revealWord{
-    font-size: clamp(46px, 7vw, 86px);
-    font-weight: 1000;
-    letter-spacing:.6px;
-    margin: 14px 0 6px;
-  }
+  .revealWord{font-size: clamp(46px, 7vw, 86px);font-weight: 1000;letter-spacing:.6px;margin: 14px 0 6px;}
   .impostor{color: rgba(254,202,202,.98); text-shadow:0 14px 50px rgba(239,68,68,.22)}
   .normal{color: rgba(167,243,208,.95); text-shadow:0 14px 50px rgba(34,197,94,.16)}
   .center{text-align:center}
-
-  @media (max-width: 860px){
-    .menuGrid{grid-template-columns: 1fr;}
-  }
+  @media (max-width: 860px){ .menuGrid{grid-template-columns: 1fr;} }
 </style>
 </head>
 <body>
 <div class="stars"></div>
 <div class="wrap">
   <header>
-    <div>
-      <div class="brand">
-        <div class="logo">🛰️</div>
-        <div>
-          <h1>Impostor • Aula</h1>
-          <div class="subtitle">Modo Among Us, pero para clase: crea sala, comparte código y… que empiece el misterio.</div>
-        </div>
+    <div class="brand">
+      <div class="logo">🛰️</div>
+      <div>
+        <h1>Impostor • Aula</h1>
+        <div class="subtitle">El host NO participa: solo controla la sala y lanza la ronda.</div>
       </div>
     </div>
     <span class="pill">Incrustable en Google Sites</span>
   </header>
 
-  <!-- HOME: SOLO 2 BOTONES -->
   <section id="screen-home" class="panel">
     <div id="home-menu" class="card">
       <h2 style="margin:0 0 10px">Elige opción</h2>
       <div class="menuGrid">
-        <div class="bigBtn create" id="goCreate">
+        <div class="bigBtn" id="goCreate">
           <div class="t">👑 Crear sala (Host)</div>
-          <p class="d">Tú pones la palabra secreta. Se genera un código para la clase.</p>
+          <p class="d">Crea la sala y escribe la palabra. (No juegas).</p>
         </div>
-        <div class="bigBtn join" id="goJoin">
+        <div class="bigBtn" id="goJoin">
           <div class="t">👥 Unirse a sala</div>
-          <p class="d">Introduce el código del host y tu nombre para entrar.</p>
+          <p class="d">Entra con el código del host y tu nombre.</p>
         </div>
       </div>
     </div>
 
-    <!-- Crear: aparece SOLO al pulsar -->
     <div id="home-create" class="card hidden">
       <div class="row" style="justify-content:space-between">
         <h2 style="margin:0">👑 Crear sala</h2>
@@ -225,10 +125,9 @@
       <input id="secretWord" placeholder="Ej: Estructuras" autocomplete="off">
       <button id="btnCreate">Crear</button>
       <div id="createErr" class="err"></div>
-      <p class="subtitle" style="margin:10px 0 0">Se generará un código de 6 caracteres (tipo Kahoot).</p>
+      <p class="subtitle" style="margin:10px 0 0">Se generará un código de 6 caracteres.</p>
     </div>
 
-    <!-- Unirse: aparece SOLO al pulsar -->
     <div id="home-join" class="card hidden">
       <div class="row" style="justify-content:space-between">
         <h2 style="margin:0">👥 Unirse</h2>
@@ -240,11 +139,9 @@
       <input id="joinName" placeholder="Ej: Lucía" autocomplete="off">
       <button class="ghost" id="btnJoin">Entrar</button>
       <div id="joinErr" class="err"></div>
-      <p class="subtitle" style="margin:10px 0 0">Cuando el host empiece, verás tu palabra.</p>
     </div>
   </section>
 
-  <!-- LOBBY -->
   <section id="screen-lobby" class="panel hidden">
     <div class="card">
       <div class="lobbyTop">
@@ -260,14 +157,15 @@
       </div>
 
       <div style="margin-top:14px">
-        <p class="subtitle" style="margin:0">Host: <b id="hostLabel">-</b></p>
+        <p class="subtitle" style="margin:0">Host: <b id="hostLabel">-</b> <span id="hostNote" class="pill" style="margin-left:8px;display:none">No participas</span></p>
         <div id="players" class="chipRow"></div>
       </div>
 
       <div id="hostArea" class="hidden" style="margin-top:16px">
         <button id="btnStart">Empezar (elige impostor)</button>
         <div id="hostErr" class="err"></div>
-        <p class="subtitle" style="margin:10px 0 0">Mínimo 3 jugadores.</p>
+        <p class="subtitle" style="margin:10px 0 0">Mínimo 3 jugadores (sin contar al host).</p>
+        <div id="hostStartedInfo" class="subtitle" style="margin-top:10px"></div>
       </div>
 
       <div id="waitArea" style="margin-top:16px">
@@ -276,7 +174,6 @@
     </div>
   </section>
 
-  <!-- REVEAL -->
   <section id="screen-reveal" class="panel hidden">
     <div class="card center">
       <div class="row" style="justify-content:center">
@@ -297,14 +194,13 @@
   const socket = io();
   let currentCode = null;
   let isHost = false;
-
   const $ = (id) => document.getElementById(id);
+
   function show(screenId){
     ["screen-home","screen-lobby","screen-reveal"].forEach(id => $(id).classList.add("hidden"));
     $(screenId).classList.remove("hidden");
   }
   function showHome(view){
-    // menu | create | join
     $("home-menu").classList.toggle("hidden", view !== "menu");
     $("home-create").classList.toggle("hidden", view !== "create");
     $("home-join").classList.toggle("hidden", view !== "join");
@@ -324,6 +220,7 @@
       if (!res?.ok) return $("createErr").textContent = res?.error || "Error";
       currentCode = res.code;
       isHost = true;
+      $("hostNote").style.display = "inline-flex";
       show("screen-lobby");
     });
   };
@@ -336,6 +233,7 @@
       if (!res?.ok) return $("joinErr").textContent = res?.error || "Error";
       currentCode = code;
       isHost = false;
+      $("hostNote").style.display = "none";
       show("screen-lobby");
     });
   };
@@ -359,7 +257,6 @@
     $("hostLabel").textContent = state.hostName;
     renderPlayers(state.players);
 
-    // host controls
     $("hostArea").classList.toggle("hidden", !isHost);
     $("waitArea").classList.toggle("hidden", isHost);
     show("screen-lobby");
@@ -371,6 +268,11 @@
       if (!res?.ok) $("hostErr").textContent = res?.error || "Error";
     });
   };
+
+  socket.on("host_started", ({ code, playerCount }) => {
+    // Host feedback only (no secret word revealed)
+    $("hostStartedInfo").textContent = `✅ Ronda iniciada en ${code}. Jugadores en partida: ${playerCount}. (Tú no participas)`;
+  });
 
   $("btnCopy").onclick = async () => {
     try{
@@ -396,14 +298,20 @@
   socket.on("reveal", ({ code, name, shown }) => {
     $("revealCode").textContent = code;
     $("revealName").textContent = "🧩 " + name;
-
     const w = $("revealWord");
     w.textContent = shown;
     w.classList.remove("impostor","normal");
     w.classList.add(shown === "IMPOSTOR" ? "impostor" : "normal");
-
     $("hint").textContent = (shown === "IMPOSTOR") ? "Eres el impostor. Disimula 😈" : "Di la palabra sin delatarte.";
     show("screen-reveal");
+  });
+
+  socket.on("room_closed", () => {
+    alert("La sala se cerró (salió el host).");
+    currentCode = null;
+    isHost = false;
+    showHome("menu");
+    show("screen-home");
   });
 </script>
 </body>
