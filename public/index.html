@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Classroom Impostor</title>
+  <style>
+    :root{
+      --card: rgba(255,255,255,.88);
+      --stroke: rgba(255,255,255,.35);
+      --text: #0b1220;
+      --muted: rgba(11,18,32,.65);
+      --shadow: 0 16px 40px rgba(0,0,0,.22);
+      --radius: 18px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      color: var(--text);
+      min-height:100vh;
+      background:
+        linear-gradient(180deg, rgba(8,14,30,.55), rgba(8,14,30,.75)),
+        url('/assets/bg.png');
+      background-size: cover;
+      background-position:center;
+      background-attachment: fixed;
+    }
+    .wrap{max-width:1020px;margin:0 auto;padding:28px 16px 60px;}
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    h1{margin:0;font-size:clamp(26px,3vw,38px);color:#fff;text-shadow:0 8px 26px rgba(0,0,0,.55)}
+    .subtitle{margin:6px 0 0;color:rgba(255,255,255,.84)}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px}
+    .card{
+      background: var(--card);
+      border:1px solid var(--stroke);
+      box-shadow: var(--shadow);
+      border-radius: var(--radius);
+      padding:16px;
+      backdrop-filter: blur(10px);
+    }
+    label{display:block;font-weight:700;margin:10px 0 6px}
+    input{
+      width:100%;
+      padding:12px 12px;
+      border-radius:14px;
+      border:1px solid rgba(0,0,0,.15);
+      font-size:16px;
+      outline:none;
+    }
+    input:focus{border-color:rgba(0,0,0,.35)}
+    button{
+      width:100%;
+      padding:12px 12px;
+      border-radius:14px;
+      border:none;
+      background:#111827;
+      color:#fff;
+      font-weight:800;
+      font-size:16px;
+      cursor:pointer;
+      transition: transform .08s ease, opacity .12s ease;
+      margin-top:12px;
+    }
+    button:active{transform: translateY(1px)}
+    .danger{background:#b00020}
+    .ghost{background:rgba(17,24,39,.12);color:#111827;border:1px solid rgba(17,24,39,.18)}
+    .pill{display:inline-block;background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.22);padding:6px 10px;border-radius:999px}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .muted{color:var(--muted);margin:.4rem 0 0}
+    .err{color:#b00020;font-weight:700;margin-top:10px}
+    .hidden{display:none}
+    ul{margin:10px 0 0;padding-left:18px}
+    .big{
+      font-size: clamp(42px, 6vw, 76px);
+      font-weight: 1000;
+      letter-spacing: .5px;
+      margin: 12px 0;
+    }
+    .center{text-align:center}
+    .code{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-weight: 900;
+      letter-spacing: 2px;
+      font-size: 22px;
+    }
+    .topnote{
+      display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;
+      margin-top:10px;
+    }
+    footer{margin-top:14px;color:rgba(255,255,255,.75);font-size:13px}
+    @media (max-width: 860px){ .grid{grid-template-columns:1fr} }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>🕵️ Classroom Impostor</h1>
+        <div class="subtitle">Crea sala, comparte código, y descubre quién es el impostor.</div>
+      </div>
+      <span class="pill">Listo para incrustar en Google Sites</span>
+    </header>
+
+    <section id="screen-home" class="grid">
+      <div class="card">
+        <h2>Crear sala (Host)</h2>
+        <label>Tu nombre</label>
+        <input id="hostName" placeholder="Ej: Paco" autocomplete="off" />
+        <label>Palabra secreta</label>
+        <input id="secretWord" placeholder="Ej: Estructuras" autocomplete="off" />
+        <button id="btnCreate">Crear sala</button>
+        <div id="createErr" class="err"></div>
+        <p class="muted">Se genera un código de 6 caracteres.</p>
+      </div>
+
+      <div class="card">
+        <h2>Unirse</h2>
+        <label>Código</label>
+        <input id="joinCode" placeholder="Ej: A9K3ZQ" autocomplete="off" />
+        <label>Tu nombre</label>
+        <input id="joinName" placeholder="Ej: Lucía" autocomplete="off" />
+        <button id="btnJoin">Entrar</button>
+        <div id="joinErr" class="err"></div>
+        <p class="muted">Cuando el host inicie, verás tu palabra.</p>
+      </div>
+    </section>
+
+    <section id="screen-lobby" class="hidden">
+      <div class="topnote">
+        <div class="row">
+          <span class="pill">Sala</span>
+          <span class="pill code" id="roomCode">------</span>
+          <span class="pill" id="roomMeta">Jugadores: 0</span>
+        </div>
+        <div class="row">
+          <button id="btnCopy" class="ghost" style="width:auto;padding:10px 14px;margin-top:0">Copiar código</button>
+          <button id="btnLeave" class="danger" style="width:auto;padding:10px 14px;margin-top:0">Salir</button>
+        </div>
+      </div>
+
+      <div class="grid" style="margin-top:14px">
+        <div class="card">
+          <h2>👥 Lobby</h2>
+          <p class="muted">Host: <b id="hostNameLabel">-</b></p>
+          <ul id="playerList"></ul>
+        </div>
+
+        <div class="card">
+          <div id="hostControls" class="hidden">
+            <h2>🎲 Control del host</h2>
+            <button id="btnStart">Empezar (elige impostor)</button>
+            <p class="muted">Mínimo 3 jugadores.</p>
+            <hr style="border:none;border-top:1px solid rgba(0,0,0,.12);margin:14px 0">
+            <h3>Nueva ronda (opcional)</h3>
+            <label>Nueva palabra</label>
+            <input id="newWord" placeholder="Ej: Circuitos" autocomplete="off" />
+            <button id="btnNewRound" class="ghost">Preparar nueva ronda</button>
+            <div id="hostErr" class="err"></div>
+          </div>
+          <div id="playerWait">
+            <h2>⏳ Espera…</h2>
+            <p class="muted">El host iniciará cuando estéis listos.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-reveal" class="hidden center">
+      <div class="card">
+        <div class="row" style="justify-content:center">
+          <span class="pill">Sala</span>
+          <span class="pill code" id="revealCode">------</span>
+        </div>
+        <h2 id="revealName" style="margin:10px 0 0">🧩</h2>
+        <div class="big" id="shownWord">—</div>
+        <p class="muted" id="hintText"></p>
+        <button id="btnBackLobby" class="ghost">Volver al lobby</button>
+        <button id="btnLeave2" class="danger">Salir</button>
+      </div>
+    </section>
+
+    <footer>
+      Consejo: incrusta esta app en Google Sites con un iframe y ponla grande en el proyector.
+    </footer>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let currentCode = null;
+    let isHost = false;
+
+    const $ = (id) => document.getElementById(id);
+
+    function show(screenId){
+      ["screen-home","screen-lobby","screen-reveal"].forEach(id => $(id).classList.add("hidden"));
+      $(screenId).classList.remove("hidden");
+    }
+
+    function setErr(id, msg){ $(id).textContent = msg || ""; }
+
+    function setLobby(state){
+      currentCode = state.code;
+      $("roomCode").textContent = state.code;
+      $("hostNameLabel").textContent = state.hostName;
+      $("roomMeta").textContent = `Jugadores: ${state.playerCount}`;
+
+      const ul = $("playerList");
+      ul.innerHTML = "";
+      state.players.forEach(n => {
+        const li = document.createElement("li");
+        li.textContent = n;
+        ul.appendChild(li);
+      });
+
+      $("hostControls").classList.toggle("hidden", !(isHost) || state.started);
+      $("playerWait").classList.toggle("hidden", (isHost && !state.started));
+      if (!isHost) $("playerWait").classList.remove("hidden");
+    }
+
+    $("btnCreate").onclick = () => {
+      setErr("createErr","");
+      const hostName = $("hostName").value.trim();
+      const word = $("secretWord").value.trim();
+      socket.emit("create_room", { hostName, word }, (res) => {
+        if (!res?.ok) return setErr("createErr", res?.error || "Error");
+        currentCode = res.code;
+        isHost = true;
+        show("screen-lobby");
+      });
+    };
+
+    $("btnJoin").onclick = () => {
+      setErr("joinErr","");
+      const code = $("joinCode").value.trim().toUpperCase();
+      const name = $("joinName").value.trim();
+      socket.emit("join_room", { code, name }, (res) => {
+        if (!res?.ok) return setErr("joinErr", res?.error || "Error");
+        currentCode = code;
+        isHost = !!res.isHost;
+        show("screen-lobby");
+      });
+    };
+
+    $("btnStart").onclick = () => {
+      setErr("hostErr","");
+      socket.emit("start_game", { code: currentCode }, (res) => {
+        if (!res?.ok) setErr("hostErr", res?.error || "Error");
+      });
+    };
+
+    $("btnNewRound").onclick = () => {
+      setErr("hostErr","");
+      const word = $("newWord").value.trim();
+      socket.emit("new_round", { code: currentCode, word }, (res) => {
+        if (!res?.ok) setErr("hostErr", res?.error || "Error");
+        else $("newWord").value = "";
+      });
+    };
+
+    function leave(){
+      if (!currentCode) return show("screen-home");
+      socket.emit("leave_room", { code: currentCode }, () => {
+        currentCode = null;
+        isHost = false;
+        show("screen-home");
+      });
+    }
+
+    $("btnLeave").onclick = leave;
+    $("btnLeave2").onclick = leave;
+
+    $("btnBackLobby").onclick = () => show("screen-lobby");
+
+    $("btnCopy").onclick = async () => {
+      try{
+        await navigator.clipboard.writeText(currentCode || "");
+        $("btnCopy").textContent = "¡Copiado!";
+        setTimeout(()=> $("btnCopy").textContent = "Copiar código", 900);
+      } catch(e){
+        alert("No se pudo copiar. Copia manualmente: " + (currentCode||""));
+      }
+    };
+
+    socket.on("room_update", (state) => {
+      if (!state) return;
+      setLobby(state);
+      show("screen-lobby");
+    });
+
+    socket.on("reveal", ({ code, name, shown }) => {
+      $("revealCode").textContent = code;
+      $("revealName").textContent = "🧩 " + name;
+      $("shownWord").textContent = shown;
+      $("hintText").textContent = (shown === "IMPOSTOR")
+        ? "Eres el impostor. Disimula 😉"
+        : "Di la palabra sin delatarte.";
+      show("screen-reveal");
+    });
+
+    socket.on("room_closed", () => {
+      alert("La sala se ha cerrado (se fue el host).");
+      currentCode = null;
+      isHost = false;
+      show("screen-home");
+    });
+  </script>
+</body>
+</html>
