@@ -317,7 +317,7 @@
     $("roomCode").textContent = state.code;
     $("roomMeta").textContent = `Jugadores: ${state.playerCount}`;
     $("hostLabel").textContent = state.hostName;
-    renderPlayers(state.players);
+    renderPlayers((state.players||[]).map(p=>p.name));
 
     $("hostArea").classList.toggle("hidden", !isHost);
     $("waitArea").classList.toggle("hidden", isHost);
