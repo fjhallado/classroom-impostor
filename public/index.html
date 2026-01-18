@@ -99,12 +99,6 @@
   .barFill{height:100%;border-radius:999px;background:linear-gradient(90deg, rgba(34,211,238,.95), rgba(99,102,241,.85));width:0%}
   .barCount{width:64px;text-align:right;color:rgba(255,255,255,.75);font-weight:900}
 
-
-  .lbRow{display:flex;gap:10px;align-items:center;margin:8px 0;padding:10px;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05)}
-  .lbName{flex:1;font-weight:950;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .lbStat{width:86px;text-align:right;color:rgba(255,255,255,.78);font-weight:950}
-  .badge{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);margin-top:10px}
-
 </style>
 
 <link rel="manifest" href="/manifest.webmanifest">
@@ -163,9 +157,7 @@
       </div>
       <label>Código</label>
       <input id="joinCode" placeholder="Ej: A9K3ZQ" autocomplete="off">
-      <label>Tu correo (para el histórico)</label>
-      <input id="joinEmail" placeholder="ej: alumno@centro.es" autocomplete="off">
-      <label>Tu nombre (puede cambiar)</label>
+      <label>Tu nombre</label>
       <input id="joinName" placeholder="Ej: Lucía" autocomplete="off">
       <button class="ghost" id="btnJoin">Entrar</button>
       <div id="joinErr" class="err"></div>
@@ -251,16 +243,6 @@
         <div id="voteChart"></div>
       </div>
 
-      
-      <div id="roundResult" class="card" style="margin-top:16px; display:none;">
-        <h3 style="margin:0 0 10px">Resultado de la ronda</h3>
-        <div id="resultText" class="subtitle" style="margin:0"></div>
-        <div style="margin-top:10px">
-          <h4 style="margin:0 0 8px">Histórico de victorias</h4>
-          <div id="leaderboard"></div>
-        </div>
-      </div>
-
       <div id="hostVoteControls" class="hidden" style="margin-top:16px">
         <button class="ghost" id="btnCloseVote">Cerrar votación</button>
       </div>
@@ -310,8 +292,7 @@
     $("joinErr").textContent = "";
     const code = $("joinCode").value.trim().toUpperCase();
     const name = $("joinName").value.trim();
-    const email = $("joinEmail").value.trim();
-    socket.emit("join_room", { code, name, email }, (res) => {
+    socket.emit("join_room", { code, name }, (res) => {
       if (!res?.ok) return $("joinErr").textContent = res?.error || "Error";
       currentCode = code;
       isHost = false;
@@ -408,29 +389,7 @@
     });
   }
 
-  
-  function renderLeaderboard(items){
-    const box = $("leaderboard");
-    box.innerHTML = "";
-    if (!items || !items.length){
-      box.innerHTML = '<div class="subtitle">Sin datos.</div>';
-      return;
-    }
-    items.forEach(it => {
-      const row = document.createElement("div");
-      row.className = "lbRow";
-      row.innerHTML = `
-        <div class="lbName">${it.displayName}</div>
-        <div class="lbStat">🕵️ ${it.accuserWins}</div>
-        <div class="lbStat">☠️ ${it.impostorWins}</div>
-        <div class="lbStat">🏆 ${it.totalWins}</div>
-      `;
-      box.appendChild(row);
-    });
-  }
-
-socket.on("vote_open", (data) => {
-    $("roundResult").style.display = "none";
+  socket.on("vote_open", (data) => {
     $("voteCode").textContent = data.code;
     $("voteMeta").textContent = `Votos: ${data.totalVotes}`;
     $("btnGoVote").classList.remove("hidden");
@@ -451,25 +410,11 @@ socket.on("vote_open", (data) => {
   socket.on("vote_closed", (data) => {
     $("voteMeta").textContent = `Votos: ${data.totalVotes} (cerrada)`;
     renderChart(data.players, data.counts);
-
-    const caught = data.caught;
-    const impostorName = data.impostorName || "???";
-
-    let msg = "";
-    if (data.maxVotes === 0){
-      msg = `⚠️ Nadie votó. El impostor era <b>${impostorName}</b>.`;
-    } else if (caught){
-      msg = `✅ ¡Impostor descubierto! Era <b>${impostorName}</b>. Ganan los acusadores correctos (🕵️).`;
-    } else {
-      msg = `❌ El impostor escapó. Era <b>${impostorName}</b>. Gana el impostor (☠️).`;
-    }
-
-    $("resultText").innerHTML = msg + `<div class="badge">Regla: si el impostor está entre los más votados (empate incluido), cuenta como descubierto.</div>`;
-    $("roundResult").style.display = "block";
-    renderLeaderboard(data.leaderboard || []);
   });
 
-socket.on("host_started", ({ code, playerCount }) => {
+
+
+  socket.on("host_started", ({ code, playerCount }) => {
     $("hostStartedInfo").textContent = `✅ Ronda iniciada en ${code}. Jugadores en partida: ${playerCount}. (Tú no participas)`;
   });
 
@@ -492,7 +437,6 @@ socket.on("host_started", ({ code, playerCount }) => {
     show("screen-home");
     $("btnGoVote").classList.add("hidden");
     $("voteErr").textContent="";
-    const rr = $("roundResult"); if (rr) rr.style.display="none";
   }
   $("btnLeave").onclick = leave;
   $("leave2").onclick = leave;

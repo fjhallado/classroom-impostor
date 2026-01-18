@@ -26,13 +26,6 @@ function uniqueCode() {
 }
 function token6(){ return randomCode(6); }
 
-function normalizeEmail(email){
-  return String(email||"").trim().toLowerCase();
-}
-function isValidEmail(email){
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
 function publicPlayers(room){
   return Array.from(room.players.values()).map(p => ({ name: p.name, token: p.token }));
 }
@@ -57,20 +50,6 @@ function voteState(room){
   }
   return { players, counts, totalVotes: room.votes.size };
 }
-function leaderboard(room){
-  const out = [];
-  for (const [email, s] of room.scores.entries()){
-    out.push({
-      email,
-      displayName: s.displayName || s.lastName || email,
-      accuserWins: s.accuserWins || 0,
-      impostorWins: s.impostorWins || 0,
-      totalWins: (s.accuserWins || 0) + (s.impostorWins || 0)
-    });
-  }
-  out.sort((a,b)=> b.totalWins - a.totalWins || b.accuserWins - a.accuserWins || a.displayName.localeCompare(b.displayName));
-  return out;
-}
 
 io.on("connection", (socket) => {
 
@@ -88,9 +67,7 @@ io.on("connection", (socket) => {
       hostName,
       players: new Map(),
       voteOpen: false,
-      votes: new Map(),
-      impostorToken: null,
-      scores: new Map()
+      votes: new Map()
     });
 
     socket.join(code);
@@ -101,34 +78,20 @@ io.on("connection", (socket) => {
     io.to(code).emit("room_update", roomState(code));
   });
 
-  socket.on("join_room", ({ code, name, email }, cb) => {
+  socket.on("join_room", ({ code, name }, cb) => {
     code = String(code||"").trim().toUpperCase();
     name = String(name||"").trim().slice(0, 20);
-    email = normalizeEmail(email);
-
     if (!rooms.has(code)) return cb({ ok: false, error: "Código no válido." });
+
     const room = rooms.get(code);
     if (room.started) return cb({ ok: false, error: "La partida ya empezó." });
     if (!name) return cb({ ok: false, error: "Escribe tu nombre." });
-    if (!email || !isValidEmail(email)) return cb({ ok:false, error:"Introduce un correo válido." });
     if (socket.id === room.hostId) return cb({ ok:false, error:"El host no participa como jugador." });
-
-    for (const p of room.players.values()){
-      if (p.email === email) return cb({ ok:false, error:"Ese correo ya está dentro de la sala." });
-    }
 
     let t;
     do { t = token6(); } while ([...room.players.values()].some(p => p.token === t));
 
-    room.players.set(socket.id, { name, email, token: t, joinedAt: now() });
-
-    if (!room.scores.has(email)){
-      room.scores.set(email, { accuserWins: 0, impostorWins: 0, lastName: name, displayName: name });
-    } else {
-      const s = room.scores.get(email);
-      s.lastName = name;
-      s.displayName = name;
-    }
+    room.players.set(socket.id, { name, token: t, joinedAt: now() });
 
     socket.join(code);
     socket.data.roomCode = code;
@@ -150,11 +113,11 @@ io.on("connection", (socket) => {
     room.voteOpen = false;
     room.votes = new Map();
 
-    const playerTokens = Array.from(room.players.values()).map(p => p.token);
-    room.impostorToken = playerTokens[Math.floor(Math.random() * playerTokens.length)];
+    const playerIds = Array.from(room.players.keys());
+    const impostorId = playerIds[Math.floor(Math.random() * playerIds.length)];
 
     for (const [sid, p] of room.players.entries()) {
-      const role = (p.token === room.impostorToken) ? "IMPOSTOR" : "CREWMATE";
+      const role = (sid === impostorId) ? "IMPOSTOR" : "CREWMATE";
       const shown = (role === "IMPOSTOR") ? "IMPOSTOR" : room.word;
       io.to(sid).emit("reveal", { code, name: p.name, role, shown });
     }
@@ -204,46 +167,7 @@ io.on("connection", (socket) => {
     if (socket.id !== room.hostId) return cb?.({ ok:false, error:"Solo el host puede cerrar." });
 
     room.voteOpen = false;
-
-    const vs = voteState(room);
-    const counts = vs.counts;
-    const maxVotes = Math.max(0, ...Object.values(counts));
-    const topTokens = Object.entries(counts).filter(([t,c])=>c===maxVotes && maxVotes>0).map(([t])=>t);
-
-    const impostorToken = room.impostorToken;
-    const impostorPlayer = [...room.players.values()].find(p => p.token === impostorToken);
-    const impostorName = impostorPlayer ? impostorPlayer.name : "???";
-
-    const caught = topTokens.includes(impostorToken);
-
-    if (caught){
-      for (const [voterSid, target] of room.votes.entries()){
-        if (target === impostorToken && room.players.has(voterSid)){
-          const p = room.players.get(voterSid);
-          const s = room.scores.get(p.email);
-          if (s) s.accuserWins = (s.accuserWins||0) + 1;
-        }
-      }
-    } else {
-      if (impostorPlayer){
-        const s = room.scores.get(impostorPlayer.email);
-        if (s) s.impostorWins = (s.impostorWins||0) + 1;
-      }
-    }
-
-    const lb = leaderboard(room);
-
-    io.to(code).emit("vote_closed", {
-      code,
-      ...vs,
-      impostorName,
-      impostorToken,
-      caught,
-      maxVotes,
-      topTokens,
-      leaderboard: lb
-    });
-
+    io.to(code).emit("vote_closed", { code, ...voteState(room) });
     cb?.({ ok:true });
     io.to(code).emit("room_update", roomState(code));
   });
