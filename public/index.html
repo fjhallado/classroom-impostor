@@ -113,6 +113,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
+
+<script src="/config.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+
 </head>
 <body>
 <div class="stars"></div>
@@ -163,8 +167,6 @@
       </div>
       <label>Código</label>
       <input id="joinCode" placeholder="Ej: A9K3ZQ" autocomplete="off">
-      <label>Tu correo (para el histórico)</label>
-      <input id="joinEmail" placeholder="ej: alumno@centro.es" autocomplete="off">
       <label>Tu nombre (puede cambiar)</label>
       <input id="joinName" placeholder="Ej: Lucía" autocomplete="off">
       <button class="ghost" id="btnJoin">Entrar</button>
@@ -270,10 +272,63 @@
 <script src="/socket.io/socket.io.js"></script>
 <script>
   const socket = io();
+  let googleAuthed = false;
+  let googleEmail = "";
+
   let currentCode = null;
   let isHost = false;
   let currentScreen = "home"; // home | lobby | reveal | vote
   const $ = (id) => document.getElementById(id);
+
+
+  // --- GOOGLE SIGN-IN (obligatorio para jugadores) ---
+  function setGoogleStatus(ok, email, err){
+    googleAuthed = !!ok;
+    googleEmail = email || "";
+    $("googleEmail").textContent = googleEmail || "—";
+    $("googleErr").textContent = err || "";
+    // Solo habilitamos "Unirse" si está autenticado
+    const joinBtn = $("btnJoin");
+    if (joinBtn) joinBtn.disabled = !googleAuthed;
+    if (joinBtn) joinBtn.style.opacity = googleAuthed ? "1" : ".55";
+  }
+
+  function initGoogle(){
+    const cfg = window.__APP_CONFIG__ || {};
+    const clientId = cfg.GOOGLE_CLIENT_ID;
+    if (!clientId){
+      setGoogleStatus(false, "", "⚠️ Falta configurar GOOGLE_CLIENT_ID en Render.");
+      return;
+    }
+
+    // Render button
+    google.accounts.id.initialize({
+      client_id: clientId,
+      callback: (resp) => {
+        const credential = resp.credential;
+        socket.emit("google_auth", { credential }, (res) => {
+          if (res?.ok){
+            setGoogleStatus(true, res.email, "");
+          } else {
+            setGoogleStatus(false, "", res?.error || "No se pudo iniciar sesión.");
+          }
+        });
+      },
+      auto_select: true,
+      cancel_on_tap_outside: false
+    });
+
+    google.accounts.id.renderButton($("gbtn"), {
+      theme: "outline",
+      size: "large",
+      text: "signin_with",
+      shape: "pill"
+    });
+
+    // Optional One Tap prompt (works well on Chromebooks)
+    try { google.accounts.id.prompt(); } catch(e){}
+  }
+
 
   function show(screenId){
     ["screen-home","screen-lobby","screen-reveal","screen-vote"].forEach(id => $(id).classList.add("hidden"));
@@ -310,8 +365,7 @@
     $("joinErr").textContent = "";
     const code = $("joinCode").value.trim().toUpperCase();
     const name = $("joinName").value.trim();
-    const email = $("joinEmail").value.trim();
-    socket.emit("join_room", { code, name, email }, (res) => {
+    socket.emit("join_room", { code, name }, (res) => {
       if (!res?.ok) return $("joinErr").textContent = res?.error || "Error";
       currentCode = code;
       isHost = false;
@@ -490,6 +544,9 @@ socket.on("host_started", ({ code, playerCount }) => {
     currentScreen = "home";
     showHome("menu");
     show("screen-home");
+  // Disable join until Google auth
+  if ($("btnJoin")) { $("btnJoin").disabled = true; $("btnJoin").style.opacity = ".55"; }
+  initGoogle();
     $("btnGoVote").classList.add("hidden");
     $("voteErr").textContent="";
     const rr = $("roundResult"); if (rr) rr.style.display="none";
