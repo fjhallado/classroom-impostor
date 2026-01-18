@@ -92,7 +92,21 @@
   .impostorText{color: rgba(254,202,202,.98); text-shadow:0 14px 50px rgba(239,68,68,.22)}
   .normalText{color: rgba(167,243,208,.95); text-shadow:0 14px 50px rgba(34,197,94,.16)}
   @media (max-width: 860px){ .menuGrid{grid-template-columns: 1fr;} }
+
+  .barRow{display:flex;align-items:center;gap:10px;margin:10px 0;}
+  .barName{width:160px;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(255,255,255,.9);font-weight:900}
+  .barTrack{flex:1;height:16px;border-radius:999px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.12);overflow:hidden}
+  .barFill{height:100%;border-radius:999px;background:linear-gradient(90deg, rgba(34,211,238,.95), rgba(99,102,241,.85));width:0%}
+  .barCount{width:64px;text-align:right;color:rgba(255,255,255,.75);font-weight:900}
+
 </style>
+
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#050712">
+<link rel="apple-touch-icon" href="/assets/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
 </head>
 <body>
 <div class="stars"></div>
@@ -171,6 +185,7 @@
 
       <div id="hostArea" class="hidden" style="margin-top:16px">
         <button id="btnStart">Empezar (elige impostor)</button>
+        <button class="ghost" id="btnOpenVote">Abrir votación</button>
         <div id="hostErr" class="err"></div>
         <p class="subtitle" style="margin:10px 0 0">Mínimo 3 jugadores (sin contar al host).</p>
         <div id="hostStartedInfo" class="subtitle" style="margin-top:10px"></div>
@@ -178,6 +193,7 @@
 
       <div id="waitArea" style="margin-top:16px">
         <p class="subtitle">⏳ Espera… el host iniciará cuando estéis listos.</p>
+        <button class="ghost hidden" id="btnGoVote">Ir a votación</button>
       </div>
     </div>
   </section>
@@ -203,18 +219,50 @@
   </section>
 </div>
 
+
+  <section id="screen-vote" class="panel hidden">
+    <div class="card">
+      <div class="lobbyTop">
+        <div class="row">
+          <span class="pill">Votación</span>
+          <span class="pill code" id="voteCode">------</span>
+          <span class="pill" id="voteMeta">Votos: 0</span>
+        </div>
+        <div class="row">
+          <button class="ghost" id="backFromVote" style="width:auto;margin-top:0">← Volver</button>
+          <button class="danger" id="leaveVote" style="width:auto;margin-top:0">Salir</button>
+        </div>
+      </div>
+
+      <p class="subtitle" style="margin:14px 0 0">Elige quién crees que es el impostor:</p>
+      <div id="voteList" class="chipRow"></div>
+      <div id="voteErr" class="err"></div>
+
+      <div style="margin-top:16px">
+        <p class="subtitle" style="margin:0 0 10px">Resultados (más votado arriba):</p>
+        <div id="voteChart"></div>
+      </div>
+
+      <div id="hostVoteControls" class="hidden" style="margin-top:16px">
+        <button class="ghost" id="btnCloseVote">Cerrar votación</button>
+      </div>
+    </div>
+  </section>
+
 <script src="/socket.io/socket.io.js"></script>
 <script>
   const socket = io();
   let currentCode = null;
   let isHost = false;
-  let currentScreen = "home"; // home | lobby | reveal
+  let currentScreen = "home"; // home | lobby | reveal | vote
   const $ = (id) => document.getElementById(id);
 
   function show(screenId){
-    ["screen-home","screen-lobby","screen-reveal"].forEach(id => $(id).classList.add("hidden"));
+    ["screen-home","screen-lobby","screen-reveal","screen-vote"].forEach(id => $(id).classList.add("hidden"));
     $(screenId).classList.remove("hidden");
-    currentScreen = (screenId === "screen-home") ? "home" : (screenId === "screen-lobby" ? "lobby" : "reveal");
+    currentScreen = (screenId === "screen-home") ? "home" :
+      (screenId === "screen-lobby" ? "lobby" :
+      (screenId === "screen-reveal" ? "reveal" : "vote"));
   }
   function showHome(view){
     $("home-menu").classList.toggle("hidden", view !== "menu");
@@ -275,7 +323,7 @@
     $("waitArea").classList.toggle("hidden", isHost);
 
     // FIX CLAVE: no volver al lobby si estás viendo el rol
-    if (currentScreen !== "reveal") show("screen-lobby");
+    if (currentScreen !== "reveal" && currentScreen !== "vote") show("screen-lobby");
   });
 
   $("btnStart").onclick = () => {
@@ -284,6 +332,87 @@
       if (!res?.ok) $("hostErr").textContent = res?.error || "Error";
     });
   };
+
+
+  // --- VOTACIÓN ---
+  $("btnOpenVote").onclick = () => {
+    $("hostErr").textContent = "";
+    socket.emit("open_vote", { code: currentCode }, (res) => {
+      if (!res?.ok) $("hostErr").textContent = res?.error || "Error";
+    });
+  };
+
+  $("btnGoVote").onclick = () => {
+    show("screen-vote");
+  };
+
+  $("backFromVote").onclick = () => show("screen-lobby");
+  $("leaveVote").onclick = leave;
+  $("btnCloseVote").onclick = () => socket.emit("close_vote", { code: currentCode });
+
+  function renderVoteList(players){
+    const box = $("voteList");
+    box.innerHTML = "";
+    players.forEach(p => {
+      const chip = document.createElement("div");
+      chip.className = "chip";
+      chip.style.cursor = isHost ? "default" : "pointer";
+      chip.innerHTML = `<span class="dot"></span><span>${p.name}</span>`;
+      if (!isHost) {
+        chip.onclick = () => {
+          $("voteErr").textContent = "";
+          socket.emit("cast_vote", { code: currentCode, targetToken: p.token }, (res) => {
+            if (!res?.ok) $("voteErr").textContent = res?.error || "Error";
+          });
+        };
+      }
+      box.appendChild(chip);
+    });
+  }
+
+  function renderChart(players, counts){
+    const items = players.map(p => ({...p, c: (counts[p.token] || 0)}))
+      .sort((a,b)=> (b.c - a.c) || a.name.localeCompare(b.name));
+    const total = Math.max(1, items.reduce((s,x)=> s+x.c, 0));
+    const chart = $("voteChart");
+    chart.innerHTML = "";
+    items.forEach(it => {
+      const row = document.createElement("div");
+      row.className = "barRow";
+      const pct = Math.round((it.c / total) * 100);
+      row.innerHTML = `
+        <div class="barName">${it.name}</div>
+        <div class="barTrack"><div class="barFill" style="width:${pct}%"></div></div>
+        <div class="barCount">${it.c}</div>
+      `;
+      chart.appendChild(row);
+    });
+  }
+
+  socket.on("vote_open", (data) => {
+    $("voteCode").textContent = data.code;
+    $("voteMeta").textContent = `Votos: ${data.totalVotes}`;
+    $("btnGoVote").classList.remove("hidden");
+    $("hostVoteControls").classList.toggle("hidden", !isHost);
+    renderVoteList(data.players);
+    renderChart(data.players, data.counts);
+    show("screen-vote");
+  });
+
+  socket.on("vote_update", (data) => {
+    $("voteCode").textContent = data.code;
+    $("voteMeta").textContent = `Votos: ${data.totalVotes}`;
+    $("btnGoVote").classList.remove("hidden");
+    renderVoteList(data.players);
+    renderChart(data.players, data.counts);
+  });
+
+  socket.on("vote_closed", (data) => {
+    $("voteMeta").textContent = `Votos: ${data.totalVotes} (cerrada)`;
+    renderChart(data.players, data.counts);
+  });
+
+
 
   socket.on("host_started", ({ code, playerCount }) => {
     $("hostStartedInfo").textContent = `✅ Ronda iniciada en ${code}. Jugadores en partida: ${playerCount}. (Tú no participas)`;
@@ -306,6 +435,8 @@
     currentScreen = "home";
     showHome("menu");
     show("screen-home");
+    $("btnGoVote").classList.add("hidden");
+    $("voteErr").textContent="";
   }
   $("btnLeave").onclick = leave;
   $("leave2").onclick = leave;
@@ -347,5 +478,14 @@
     leave();
   });
 </script>
+
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("/sw.js").catch(()=>{});
+    });
+  }
+</script>
+
 </body>
 </html>

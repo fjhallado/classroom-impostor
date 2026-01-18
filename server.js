@@ -24,20 +24,35 @@ function uniqueCode() {
   do { code = randomCode(); } while (rooms.has(code));
   return code;
 }
+function token6(){ return randomCode(6); }
+
+function publicPlayers(room){
+  return Array.from(room.players.values()).map(p => ({ name: p.name, token: p.token }));
+}
 function roomState(code) {
   const room = rooms.get(code);
   if (!room) return null;
-  const players = Array.from(room.players.values()).map(p => p.name);
   return {
     code: room.code,
     started: room.started,
     hostName: room.hostName || "Host",
-    playerCount: players.length,
-    players
+    playerCount: room.players.size,
+    players: publicPlayers(room),
+    voteOpen: !!room.voteOpen
   };
+}
+function voteState(room){
+  const players = publicPlayers(room);
+  const counts = {};
+  for (const p of players) counts[p.token] = 0;
+  for (const v of room.votes.values()){
+    if (counts[v] !== undefined) counts[v] += 1;
+  }
+  return { players, counts, totalVotes: room.votes.size };
 }
 
 io.on("connection", (socket) => {
+
   socket.on("create_room", ({ hostName, word }, cb) => {
     hostName = String(hostName||"").trim().slice(0, 20);
     word = String(word||"").trim().slice(0, 30);
@@ -50,7 +65,9 @@ io.on("connection", (socket) => {
       started: false,
       hostId: socket.id,
       hostName,
-      players: new Map()
+      players: new Map(),
+      voteOpen: false,
+      votes: new Map()
     });
 
     socket.join(code);
@@ -71,7 +88,11 @@ io.on("connection", (socket) => {
     if (!name) return cb({ ok: false, error: "Escribe tu nombre." });
     if (socket.id === room.hostId) return cb({ ok:false, error:"El host no participa como jugador." });
 
-    room.players.set(socket.id, { name, joinedAt: now() });
+    let t;
+    do { t = token6(); } while ([...room.players.values()].some(p => p.token === t));
+
+    room.players.set(socket.id, { name, token: t, joinedAt: now() });
+
     socket.join(code);
     socket.data.roomCode = code;
     socket.data.isHost = false;
@@ -86,21 +107,68 @@ io.on("connection", (socket) => {
     if (!room) return cb?.({ ok:false, error:"Sala no encontrada." });
     if (socket.id !== room.hostId) return cb?.({ ok:false, error:"Solo el host puede iniciar." });
 
-    const playerIds = Array.from(room.players.keys());
-    if (playerIds.length < MIN_PLAYERS) return cb({ ok:false, error:`Mínimo ${MIN_PLAYERS} jugadores (sin contar al host).` });
+    if (room.players.size < MIN_PLAYERS) return cb({ ok:false, error:`Mínimo ${MIN_PLAYERS} jugadores (sin contar al host).` });
 
     room.started = true;
+    room.voteOpen = false;
+    room.votes = new Map();
 
-    const impostor = playerIds[Math.floor(Math.random() * playerIds.length)];
+    const playerIds = Array.from(room.players.keys());
+    const impostorId = playerIds[Math.floor(Math.random() * playerIds.length)];
+
     for (const [sid, p] of room.players.entries()) {
-      const role = (sid === impostor) ? "IMPOSTOR" : "CREWMATE";
+      const role = (sid === impostorId) ? "IMPOSTOR" : "CREWMATE";
       const shown = (role === "IMPOSTOR") ? "IMPOSTOR" : room.word;
       io.to(sid).emit("reveal", { code, name: p.name, role, shown });
     }
 
-    io.to(room.hostId).emit("host_started", { code, playerCount: playerIds.length });
+    io.to(room.hostId).emit("host_started", { code, playerCount: room.players.size });
     cb({ ok:true });
+    io.to(code).emit("room_update", roomState(code));
+  });
 
+  socket.on("open_vote", ({ code }, cb) => {
+    code = String(code||"").trim().toUpperCase();
+    const room = rooms.get(code);
+    if (!room) return cb?.({ ok:false, error:"Sala no encontrada." });
+    if (socket.id !== room.hostId) return cb?.({ ok:false, error:"Solo el host puede abrir la votación." });
+    if (!room.started) return cb?.({ ok:false, error:"Primero inicia la partida." });
+
+    room.voteOpen = true;
+    room.votes = new Map();
+
+    io.to(code).emit("vote_open", { code, ...voteState(room) });
+    cb?.({ ok:true });
+    io.to(code).emit("room_update", roomState(code));
+  });
+
+  socket.on("cast_vote", ({ code, targetToken }, cb) => {
+    code = String(code||"").trim().toUpperCase();
+    targetToken = String(targetToken||"").trim().toUpperCase();
+    const room = rooms.get(code);
+    if (!room) return cb?.({ ok:false, error:"Sala no encontrada." });
+    if (!room.voteOpen) return cb?.({ ok:false, error:"La votación no está abierta." });
+    if (socket.id === room.hostId) return cb?.({ ok:false, error:"El host no vota." });
+    if (!room.players.has(socket.id)) return cb?.({ ok:false, error:"No estás en la sala." });
+
+    const me = room.players.get(socket.id);
+    if (me.token === targetToken) return cb?.({ ok:false, error:"No puedes votarte a ti mismo." });
+    if (![...room.players.values()].some(p => p.token === targetToken)) return cb?.({ ok:false, error:"Objetivo no válido." });
+
+    room.votes.set(socket.id, targetToken);
+    cb?.({ ok:true });
+    io.to(code).emit("vote_update", { code, ...voteState(room) });
+  });
+
+  socket.on("close_vote", ({ code }, cb) => {
+    code = String(code||"").trim().toUpperCase();
+    const room = rooms.get(code);
+    if (!room) return cb?.({ ok:false, error:"Sala no encontrada." });
+    if (socket.id !== room.hostId) return cb?.({ ok:false, error:"Solo el host puede cerrar." });
+
+    room.voteOpen = false;
+    io.to(code).emit("vote_closed", { code, ...voteState(room) });
+    cb?.({ ok:true });
     io.to(code).emit("room_update", roomState(code));
   });
 
@@ -127,7 +195,12 @@ function leaveInternal(socket, code){
   }
 
   room.players.delete(socket.id);
+  room.votes.delete(socket.id);
   io.to(code).emit("room_update", roomState(code));
+
+  if (room.voteOpen){
+    io.to(code).emit("vote_update", { code, ...voteState(room) });
+  }
 }
 
 const PORT = process.env.PORT || 3000;
