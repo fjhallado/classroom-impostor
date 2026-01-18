@@ -1,6 +1,6 @@
 {
   "name": "classroom-impostor",
-  "version": "1.0.5",
+  "version": "1.0.3",
   "private": true,
   "main": "server.js",
   "scripts": {
@@ -8,8 +8,7 @@
   },
   "dependencies": {
     "express": "^4.19.2",
-    "socket.io": "^4.7.5",
-    "google-auth-library": "^9.14.2"
+    "socket.io": "^4.7.5"
   },
   "engines": {
     "node": ">=18"

@@ -2,23 +2,12 @@ const path = require("path");
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
-const { OAuth2Client } = require("google-auth-library");
-
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
 app.use(express.static(path.join(__dirname, "public")));
-
-// Expose runtime config to the frontend (so we don't hardcode secrets into index.html)
-app.get("/config.js", (req, res) => {
-  res.type("application/javascript");
-  res.send(`window.__APP_CONFIG__ = { GOOGLE_CLIENT_ID: ${JSON.stringify(GOOGLE_CLIENT_ID)} };`);
-});
-
-const googleClient = new OAuth2Client();
 
 const rooms = new Map();
 const MIN_PLAYERS = 3; // excluding host
@@ -39,6 +28,9 @@ function token6(){ return randomCode(6); }
 
 function normalizeEmail(email){
   return String(email||"").trim().toLowerCase();
+}
+function isValidEmail(email){
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
 function publicPlayers(room){
@@ -80,36 +72,7 @@ function leaderboard(room){
   return out;
 }
 
-async function verifyGoogleCredential(credential){
-  if (!GOOGLE_CLIENT_ID) {
-    throw new Error("GOOGLE_CLIENT_ID no configurado en el servidor.");
-  }
-  const ticket = await googleClient.verifyIdToken({
-    idToken: credential,
-    audience: GOOGLE_CLIENT_ID
-  });
-  const payload = ticket.getPayload();
-  // payload: { email, email_verified, sub, name, given_name, family_name, picture, ... }
-  const email = normalizeEmail(payload?.email);
-  const sub = String(payload?.sub || "");
-  if (!email || !sub) throw new Error("Token inválido.");
-  // If you want to enforce verified emails:
-  // if (!payload?.email_verified) throw new Error("Correo no verificado.");
-  return { email, sub, name: payload?.name || "", picture: payload?.picture || "" };
-}
-
 io.on("connection", (socket) => {
-
-  // --- Google auth (required for players) ---
-  socket.on("google_auth", async ({ credential }, cb) => {
-    try {
-      const user = await verifyGoogleCredential(credential);
-      socket.data.user = user;
-      cb?.({ ok:true, email: user.email, name: user.name });
-    } catch (e) {
-      cb?.({ ok:false, error: e?.message || "No se pudo verificar Google." });
-    }
-  });
 
   socket.on("create_room", ({ hostName, word }, cb) => {
     hostName = String(hostName||"").trim().slice(0, 20);
@@ -123,11 +86,11 @@ io.on("connection", (socket) => {
       started: false,
       hostId: socket.id,
       hostName,
-      players: new Map(),       // socketId -> {name, email, token}
+      players: new Map(),
       voteOpen: false,
-      votes: new Map(),         // voterSocketId -> targetToken
-      impostorToken: null,      // token string
-      scores: new Map()         // email -> {accuserWins, impostorWins, lastName, displayName}
+      votes: new Map(),
+      impostorToken: null,
+      scores: new Map()
     });
 
     socket.join(code);
@@ -138,24 +101,20 @@ io.on("connection", (socket) => {
     io.to(code).emit("room_update", roomState(code));
   });
 
-  // Players must have authenticated via google_auth first
-  socket.on("join_room", ({ code, name }, cb) => {
+  socket.on("join_room", ({ code, name, email }, cb) => {
     code = String(code||"").trim().toUpperCase();
     name = String(name||"").trim().slice(0, 20);
+    email = normalizeEmail(email);
 
     if (!rooms.has(code)) return cb({ ok: false, error: "Código no válido." });
     const room = rooms.get(code);
     if (room.started) return cb({ ok: false, error: "La partida ya empezó." });
     if (!name) return cb({ ok: false, error: "Escribe tu nombre." });
+    if (!email || !isValidEmail(email)) return cb({ ok:false, error:"Introduce un correo válido." });
     if (socket.id === room.hostId) return cb({ ok:false, error:"El host no participa como jugador." });
 
-    const user = socket.data.user;
-    if (!user?.email) return cb({ ok:false, error:"Primero inicia sesión con Google." });
-    const email = user.email;
-
-    // Prevent duplicate emails in same room
     for (const p of room.players.values()){
-      if (p.email === email) return cb({ ok:false, error:"Este correo ya está dentro de la sala." });
+      if (p.email === email) return cb({ ok:false, error:"Ese correo ya está dentro de la sala." });
     }
 
     let t;
@@ -175,7 +134,7 @@ io.on("connection", (socket) => {
     socket.data.roomCode = code;
     socket.data.isHost = false;
 
-    cb({ ok: true, email });
+    cb({ ok: true });
     io.to(code).emit("room_update", roomState(code));
   });
 
