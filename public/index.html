@@ -122,6 +122,9 @@
     <span class="pill">Incrustable en Google Sites</span>
   </header>
 
+  <p id="connectionStatus" class="subtitle" role="status">Conectando al servidor… Si lleva un rato inactivo, el primer acceso puede tardar.</p>
+  <button type="button" class="ghost hidden" id="retryConnection">Reintentar conexión</button>
+
   <section id="screen-home" class="panel">
     <div id="home-menu" class="card">
       <h2 style="margin:0 0 10px">Elige opción</h2>
@@ -146,7 +149,7 @@
       <input id="hostName" placeholder="Ej: Paco" autocomplete="off">
       <label>Palabra secreta</label>
       <input id="secretWord" placeholder="Ej: Estructuras" autocomplete="off">
-      <button id="btnCreate">Crear</button>
+      <button id="btnCreate" disabled>Crear</button>
       <div id="createErr" class="err"></div>
     </div>
 
@@ -159,7 +162,7 @@
       <input id="joinCode" placeholder="Ej: A9K3ZQ" autocomplete="off">
       <label>Tu nombre</label>
       <input id="joinName" placeholder="Ej: Lucía" autocomplete="off">
-      <button class="ghost" id="btnJoin">Entrar</button>
+      <button class="ghost" id="btnJoin" disabled>Entrar</button>
       <div id="joinErr" class="err"></div>
     </div>
   </section>
@@ -251,11 +254,35 @@
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-  const socket = io();
+  const $ = (id) => document.getElementById(id);
+  const socket = typeof io === "function" ? io({tryAllTransports:true,timeout:15000}) : null;
   let currentCode = null;
   let isHost = false;
-  let currentScreen = "home"; // home | lobby | reveal | vote
-  const $ = (id) => document.getElementById(id);
+  let currentScreen = "home";
+  const connecting = "Conectando al servidor… Si lleva un rato inactivo, el primer acceso puede tardar.";
+
+  function showConnection(text, connected, retry = false) {
+    $("connectionStatus").textContent = text;
+    $("btnCreate").disabled = $("btnJoin").disabled = !connected;
+    $("retryConnection").classList.toggle("hidden", !retry);
+  }
+
+  $("retryConnection").onclick = () => {
+    if (!socket) { location.reload(); return; }
+    showConnection(connecting, false);
+    socket.connect();
+  };
+
+  if (!socket) {
+    showConnection("No se pudo cargar la conexión. Comprueba tu acceso a Render y vuelve a intentarlo.", false, true);
+  } else {
+    socket.on("connect", () => showConnection("Servidor conectado", true));
+    socket.on("connect_error", () => showConnection("No hay conexión con Render. El juego seguirá intentando conectarse.", false, true));
+    socket.io.on("reconnect_attempt", () => showConnection(connecting, false, true));
+    socket.on("disconnect", () => {
+      if (currentCode) leave(false);
+      showConnection("Conexión perdida. Vuelve a entrar en la sala cuando se restablezca.", false, true);
+    });
 
   function show(screenId){
     ["screen-home","screen-lobby","screen-reveal","screen-vote"].forEach(id => $(id).classList.add("hidden"));
@@ -278,10 +305,21 @@
   $("back2").onclick = () => showHome("menu");
   showHome("menu");
 
+  function enterRoom(button, event, data, errorField, onSuccess) {
+    if (!socket.connected) return;
+    $(button).disabled = true;
+    $(errorField).textContent = "";
+    socket.timeout(8000).emit(event, data, (error, reply) => {
+      $(button).disabled = !socket.connected;
+      if (error) { $(errorField).textContent = "El servidor tarda en responder. Vuelve a intentarlo."; return; }
+      if (!reply?.ok) { $(errorField).textContent = reply?.error || "No se pudo entrar en la sala."; return; }
+      onSuccess(reply);
+    });
+  }
+
   $("btnCreate").onclick = () => {
-    $("createErr").textContent = "";
-    socket.emit("create_room", { hostName: $("hostName").value.trim(), word: $("secretWord").value.trim() }, (res) => {
-      if (!res?.ok) return $("createErr").textContent = res?.error || "Error";
+    const data = {hostName: $("hostName").value.trim(), word: $("secretWord").value.trim()};
+    enterRoom("btnCreate", "create_room", data, "createErr", (res) => {
       currentCode = res.code;
       isHost = true;
       show("screen-lobby");
@@ -289,11 +327,9 @@
   };
 
   $("btnJoin").onclick = () => {
-    $("joinErr").textContent = "";
     const code = $("joinCode").value.trim().toUpperCase();
     const name = $("joinName").value.trim();
-    socket.emit("join_room", { code, name }, (res) => {
-      if (!res?.ok) return $("joinErr").textContent = res?.error || "Error";
+    enterRoom("btnJoin", "join_room", {code, name}, "joinErr", () => {
       currentCode = code;
       isHost = false;
       show("screen-lobby");
@@ -306,7 +342,8 @@
     list.forEach(n => {
       const chip = document.createElement("div");
       chip.className = "chip";
-      chip.innerHTML = `<span class="dot"></span><span>${n}</span>`;
+      chip.innerHTML = '<span class="dot"></span><span></span>';
+      chip.lastElementChild.textContent = n;
       box.appendChild(chip);
     });
   }
@@ -357,7 +394,8 @@
       const chip = document.createElement("div");
       chip.className = "chip";
       chip.style.cursor = isHost ? "default" : "pointer";
-      chip.innerHTML = `<span class="dot"></span><span>${p.name}</span>`;
+      chip.innerHTML = '<span class="dot"></span><span></span>';
+      chip.lastElementChild.textContent = p.name;
       if (!isHost) {
         chip.onclick = () => {
           $("voteErr").textContent = "";
@@ -381,10 +419,11 @@
       row.className = "barRow";
       const pct = Math.round((it.c / total) * 100);
       row.innerHTML = `
-        <div class="barName">${it.name}</div>
+        <div class="barName"></div>
         <div class="barTrack"><div class="barFill" style="width:${pct}%"></div></div>
         <div class="barCount">${it.c}</div>
       `;
+      row.querySelector(".barName").textContent = it.name;
       chart.appendChild(row);
     });
   }
@@ -428,8 +467,8 @@
     }
   };
 
-  function leave(){
-    if (currentCode) socket.emit("leave_room", { code: currentCode });
+  function leave(notify = true){
+    if (notify && socket.connected && currentCode) socket.emit("leave_room", { code: currentCode });
     currentCode = null;
     isHost = false;
     currentScreen = "home";
@@ -475,8 +514,9 @@
 
   socket.on("room_closed", () => {
     alert("La sala se cerró (salió el host).");
-    leave();
+    leave(false);
   });
+  }
 </script>
 
 <script>

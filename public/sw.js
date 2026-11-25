@@ -1,12 +1,11 @@
-const CACHE_NAME = "impostor-aula-v2";
+const CACHE_NAME = "impostor-aula-v3";
 const ASSETS = [
   "/",
   "/index.html",
   "/manifest.webmanifest",
   "/assets/bg.png",
   "/assets/icon-192.png",
-  "/assets/icon-512.png",
-  "/socket.io/socket.io.js"
+  "/assets/icon-512.png"
 ];
 
 self.addEventListener("install", (event) => {
@@ -27,20 +26,32 @@ self.addEventListener("fetch", (event) => {
   const req = event.request;
   const url = new URL(req.url);
 
-  // Don't cache socket.io websocket/polling requests
-  if (url.pathname.startsWith("/socket.io/")) return;
+  if (req.method !== "GET" || url.origin !== self.location.origin ||
+      url.pathname.startsWith("/socket.io/") || url.pathname === "/bingo.html") return;
+
+  if (req.mode === "navigate") {
+    event.respondWith(
+      fetch(req).then((response) => {
+        if (response.ok) {
+          const copy = response.clone();
+          event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(req, copy)));
+        }
+        return response;
+      }).catch(async () => (await caches.match(req)) || Response.error())
+    );
+    return;
+  }
 
   event.respondWith(
     caches.match(req).then((cached) => {
       if (cached) return cached;
       return fetch(req).then((resp) => {
-        // Cache only GET same-origin
-        if (req.method === "GET" && url.origin === location.origin) {
+        if (resp.ok) {
           const copy = resp.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
+          event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(req, copy)));
         }
         return resp;
-      }).catch(() => cached);
+      });
     })
   );
 });
