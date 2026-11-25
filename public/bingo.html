@@ -1,11 +1,127 @@
-<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bingo Matemático · Mi Aula Digital</title><style>*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#203b69,#09142b 70%);color:#edf5ff;font:16px system-ui;min-height:100vh}main{max-width:1050px;margin:auto;padding:22px}h1{font-size:clamp(30px,5vw,50px);margin:10px 0}small{color:#acc6e9;letter-spacing:1px}section{background:#142641;border:1px solid #39547b;border-radius:18px;padding:18px;margin:16px 0}button,input,select{font:inherit;padding:12px;border:1px solid #5076a5;border-radius:9px;background:#203c63;color:white;margin:4px}button{cursor:pointer;font-weight:650}button:hover{background:#345e91}button.primary{background:#245edf}button:disabled{opacity:.45;cursor:default}input{max-width:100%}label{display:inline-block;padding:6px}input[type=checkbox]{accent-color:#4798ff}#operation{font-size:clamp(35px,8vw,90px);text-align:center;font-weight:800;min-height:130px;display:grid;place-items:center;white-space:normal;overflow-wrap:anywhere}#grid,.claimgrid{display:grid;gap:7px}#grid button,.claimgrid span{margin:0;min-height:65px;background:#eaf2ff;color:#142641;font-size:clamp(16px,4vw,30px);display:grid;place-items:center;border-radius:8px;padding:6px}#grid button.marked,.claimgrid span.good{background:#087e66;color:white}.claimgrid span.bad{background:#ad303e;color:white}#status{color:#ffda8a;min-height:24px}#history{white-space:pre-wrap;line-height:1.8}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}#room{font-size:28px;font-weight:bold;color:#8acbff}.claim{border-top:1px solid #39547b;padding:12px 0}a{color:#a9d3ff}[hidden]{display:none!important}.frac{display:inline-flex;flex-direction:column;vertical-align:middle;line-height:1.05;margin:0 .15em}.frac b:first-child{border-bottom:2px solid currentColor}</style><main><small>MI AULA DIGITAL · LABORATORIO DE MATEMÁTICAS</small><h1>🎱 Bingo Matemático</h1><p id="status" role="status">Conectando al servidor… Si lleva un rato inactivo, el primer acceso puede tardar.</p>
-<button type="button" id="retry" hidden>Reintentar conexión</button><section id="entry"><h2>Crear o unirse a una sala</h2><p>Profesor: configura una partida. Alumno: introduce el código y un alias.</p><div id="settings"><h3>Temáticas</h3><div id="topics"></div><label>Dificultad <select id="level"><option value="1">Fácil</option><option value="2" selected>Intermedia</option><option value="3">Difícil</option></select></label><label>Cartón <select id="size"><option>3</option><option>4</option><option>5</option></select></label></div><button class="primary" id="create" disabled>Crear sala (profesor)</button><hr><input id="code" placeholder="Código de sala" inputmode="numeric" maxlength="6"><input id="name" placeholder="Alias" maxlength="25"><button id="join" disabled>Unirme</button></section><section id="play" hidden><div class="row"><span id="room"></span><span id="count"></span><button id="full">Pantalla completa</button><button id="leave">Salir</button></div><div id="operation" aria-live="polite">Esperando la primera bola</div><div id="host" hidden><div class="row"><button class="primary" id="draw">Sacar bola</button><button id="solutions">Soluciones</button><button id="reset">Nuevos cartones</button></div><div id="hostsettings"></div><div id="history" hidden></div><h3>Participantes</h3><p id="roster"></p><h3>Comprobar línea y bingo</h3><div id="claims">Sin solicitudes</div></div><div id="student" hidden><h2 id="cardid"></h2><div id="grid"></div><div class="row"><button id="line">¡Línea!</button><button class="primary" id="bingo">¡Bingo!</button></div></div></section><footer>Mi Aula Digital · Aprende jugando</footer></main><script src="/socket.io/socket.io.js"></script><script>
+<!doctype html>
+<html lang="es">
+<head>
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width,initial-scale=1">
+ <title>Bingo Matemático · Mi Aula Digital</title>
+ <meta name="theme-color" content="#0d1830">
+ <link rel="stylesheet" href="/bingo.css">
+</head>
+<body>
+<header class="site-header">
+ <div class="shell site-header-inner">
+  <a class="brand" href="https://fjhallado.github.io/miauladigital/">Mi Aula Digital</a>
+  <a class="back-link" href="https://fjhallado.github.io/miauladigital/laboratorio.html">← Volver al Laboratorio</a>
+  <span class="game-title">Bingo Matemático</span>
+ </div>
+</header>
+<main class="shell">
+ <section class="bingo-cover" aria-labelledby="title">
+  <div>
+   <p class="eyebrow">Laboratorio de Matemáticas</p>
+   <h1 id="title">Bingo <span>Matemático</span></h1>
+   <p class="intro">Resuelve cada operación y marca su resultado en tu cartón. Completa una fila para cantar línea o cubre todo el cartón para cantar bingo.</p>
+  </div>
+  <div class="cover-art" aria-hidden="true">
+   <span class="ball ball-blue">×</span>
+   <span class="ball ball-gold">7</span>
+   <span class="ball ball-lilac">½</span>
+  </div>
+ </section>
+
+ <div class="connection-bar">
+  <p id="status" role="status">Conectando al servidor… Si lleva un rato inactivo, el primer acceso puede tardar.</p>
+  <button type="button" class="secondary compact" id="retry" hidden>Reintentar conexión</button>
+ </div>
+
+ <section id="entry" class="entry-grid" aria-label="Entrar en una partida">
+  <section class="panel join-panel" aria-labelledby="join-title">
+   <p class="eyebrow">Alumnado</p>
+   <h2 id="join-title">Unirse a la partida</h2>
+   <p class="panel-copy">Introduce el código que te dé el profesor.</p>
+   <div class="join-fields">
+    <label for="code">Código de sala<input id="code" placeholder="6 cifras" inputmode="numeric" maxlength="6" autocomplete="off"></label>
+    <label for="name">Alias<input id="name" placeholder="Tu alias" maxlength="25" autocomplete="off"></label>
+   </div>
+   <button type="button" class="primary" id="join" disabled>Unirme</button>
+  </section>
+
+  <section class="panel create-panel" aria-labelledby="create-title">
+   <p class="eyebrow">Profesorado</p>
+   <h2 id="create-title">Crear una partida</h2>
+   <div id="settings">
+    <fieldset>
+     <legend>Temáticas</legend>
+     <div id="topics" class="topics"></div>
+    </fieldset>
+    <div class="options">
+     <label for="level">Dificultad<select id="level"><option value="1">Fácil</option><option value="2" selected>Intermedia</option><option value="3">Difícil</option></select></label>
+     <label for="size">Tamaño del cartón<select id="size"><option value="3">3 × 3</option><option value="4">4 × 4</option><option value="5">5 × 5</option></select></label>
+    </div>
+   </div>
+   <button type="button" class="gold" id="create" disabled>Crear sala para la clase</button>
+  </section>
+ </section>
+
+ <section id="play" hidden aria-label="Partida de Bingo Matemático">
+  <header class="room-bar">
+   <div class="room-details">
+    <strong id="room"></strong>
+    <span id="count"></span>
+   </div>
+   <div class="room-actions">
+    <button type="button" class="secondary compact" id="full">Pantalla completa</button>
+    <button type="button" class="secondary compact" id="leave">Salir</button>
+   </div>
+  </header>
+  <div class="game-area">
+   <section class="operation-panel" aria-labelledby="operation-title">
+    <h2 id="operation-title" class="eyebrow">Operación en juego</h2>
+    <div id="operation" class="waiting" aria-live="polite"><span id="operation-text">Esperando la primera bola</span></div>
+   </section>
+
+   <div id="host" hidden>
+    <section class="panel host-controls" aria-label="Controles del profesor">
+     <div class="actions">
+      <button type="button" class="gold" id="draw">Sacar bola</button>
+      <button type="button" class="secondary" id="solutions" aria-controls="history" aria-expanded="false">Soluciones</button>
+      <button type="button" class="secondary" id="reset">Nuevos cartones</button>
+     </div>
+     <pre id="history" hidden></pre>
+     <details class="round-settings">
+      <summary>Configurar la próxima ronda</summary>
+      <div id="hostsettings"></div>
+     </details>
+     <div class="roster">
+      <h2>Participantes</h2>
+      <p id="roster"></p>
+     </div>
+    </section>
+    <section class="panel verification" aria-labelledby="claims-title">
+     <h2 id="claims-title">Comprobar línea y bingo</h2>
+     <div id="claims">Sin solicitudes</div>
+    </section>
+   </div>
+
+   <section class="panel student-card" id="student" hidden aria-labelledby="cardid">
+    <h2 id="cardid"></h2>
+    <div id="grid"></div>
+    <div class="actions student-actions">
+     <button type="button" class="secondary" id="line">¡Línea!</button>
+     <button type="button" class="gold" id="bingo">¡Bingo!</button>
+    </div>
+   </section>
+  </div>
+ </section>
+</main>
+<script src="/socket.io/socket.io.js"></script><script>
 const $=id=>document.getElementById(id);
 const say=text=>{$('status').textContent=text};
 const socket=typeof io==='function'?io('/bingo',{tryAllTransports:true,timeout:15000}):null;
 const connecting='Conectando al servidor… Si lleva un rato inactivo, el primer acceso puede tardar.';
 function showConnection(text,connected,retry=false){
  say(text);
+ $('status').dataset.connected=connected;
  $('create').disabled=$('join').disabled=!connected;
  $('retry').hidden=!retry;
 }
@@ -48,6 +164,8 @@ socket.on('connect',()=>{
   state=null;
   $('play').hidden=true;
   $('entry').hidden=false;
+  delete document.body.dataset.screen;
+  delete document.body.dataset.role;
   say(error+'. Crea una sala o introduce un código nuevo.');
  });
 });
@@ -55,7 +173,100 @@ socket.on('disconnect',()=>showConnection('Conexión perdida. Reconectando…',f
 socket.on('connect_error',()=>showConnection('No hay conexión con Render. El juego seguirá intentando conectarse.',false,true));
 socket.io.on('reconnect_attempt',()=>showConnection(connecting,false,true));
 $('create').onclick=()=>call('create',settings(),save);$('join').onclick=()=>call('join',{code:$('code').value.trim(),name:$('name').value},save);
-$('draw').onclick=()=>call('draw');$('reset').onclick=()=>{if(confirm('¿Repartir nuevos cartones y reiniciar las bolas?'))call('reset',settings())};$('solutions').onclick=()=>{$('history').hidden=!$('history').hidden};$('full').onclick=()=>{if(document.fullscreenElement)document.exitFullscreen();else document.documentElement.requestFullscreen?.()};$('leave').onclick=()=>{clearSession();location.reload()};for(let [id,type] of [['line','linea'],['bingo','bingo']])$(id).onclick=()=>call('claim',{type,round:state.round},r=>say(r.valid?'¡'+type.toUpperCase()+' correcto!':'Todavía no es correcto. Revisa tus marcas.'));
-socket.on('state',s=>{state=s;$('entry').hidden=true;$('play').hidden=false;$('room').textContent='Sala '+s.code;$('count').textContent='Ronda '+s.round+' · '+s.players+' alumnos · '+s.count+'/'+s.total+' bolas';fmt($('operation'),s.operation||'Esperando la primera bola');let host=s.role==='host';$('host').hidden=!host;$('student').hidden=host;if(host){if($('settings').parentElement!==$('hostsettings')){$('hostsettings').append($('settings'));for(let i of $('topics').querySelectorAll('input'))i.checked=s.topics.includes(i.value);$('size').value=s.n}$('draw').disabled=s.count>=s.total;$('history').textContent=s.history.map((q,i)=>(i+1)+'. '+q.q+' = '+q.a).join('\n');$('roster').textContent=s.roster.map(p=>p.id+' · '+p.name+(p.connected?'':' (desconectado)')).join(' | ')||'Esperando alumnos';$('claims').replaceChildren();for(let c of [...s.claims].reverse()){let d=document.createElement('div');d.className='claim';let h=document.createElement('strong');h.textContent=c.name+' · Cartón '+c.id+' · '+c.type.toUpperCase()+' · '+(c.ok?'CORRECTO':'INCORRECTO');d.append(h);let g=document.createElement('div');g.className='claimgrid';g.style.gridTemplateColumns='repeat('+s.n+',1fr)';c.card.forEach((v,i)=>{let e=document.createElement('span');fmt(e,v);if(c.marked.includes(i))e.className=c.valid[i]?'good':'bad';g.append(e)});d.append(g);$('claims').append(d)}if(!s.claims.length)$('claims').textContent='Sin solicitudes'}else{$('cardid').textContent='Cartón '+s.id;$('grid').style.gridTemplateColumns='repeat('+s.n+',1fr)';$('grid').replaceChildren();s.card.forEach((v,i)=>{let b=document.createElement('button');fmt(b,v);let mark=s.marked.includes(i);b.className=mark?'marked':'';b.setAttribute('aria-pressed',mark);b.onclick=()=>call('mark',{i,round:s.round});$('grid').append(b)})}});
+$('draw').onclick=()=>call('draw');
+$('reset').onclick=()=>{
+ if(confirm('¿Repartir nuevos cartones y reiniciar las bolas?'))call('reset',settings());
+};
+$('solutions').onclick=()=>{
+ const visible=$('history').hidden;
+ $('history').hidden=!visible;
+ $('solutions').setAttribute('aria-expanded',String(visible));
+};
+$('full').onclick=()=>{
+ if(document.fullscreenElement)document.exitFullscreen();
+ else document.documentElement.requestFullscreen?.();
+};
+$('leave').onclick=()=>{clearSession();location.reload()};
+for(const [id,type] of [['line','linea'],['bingo','bingo']]){
+ $(id).onclick=()=>call('claim',{type,round:state.round},r=>{
+  const claim=type==='linea'?'Línea':'Bingo';
+  say(r.valid?'¡'+claim+'!':'Todavía no es correcto. Revisa tus marcas.');
+ });
 }
-</script></html>
+
+function renderClaims(round){
+ const claims=$('claims');
+ claims.replaceChildren();
+ for(const claim of [...round.claims].reverse()){
+  const block=document.createElement('div');
+  block.className='claim';
+  const heading=document.createElement('strong');
+  const type=claim.type==='linea'?'Línea':'Bingo';
+  heading.textContent=claim.name+' · Cartón '+claim.id+' · '+type+' · '+(claim.ok?'Correcto':'Incorrecto');
+  const grid=document.createElement('div');
+  grid.className='claimgrid';
+  grid.style.gridTemplateColumns='repeat('+round.n+',minmax(0,1fr))';
+  claim.card.forEach((value,i)=>{
+   const cell=document.createElement('span');
+   fmt(cell,value);
+   if(claim.marked.includes(i))cell.className=claim.valid[i]?'good':'bad';
+   grid.append(cell);
+  });
+  block.append(heading,grid);
+  claims.append(block);
+ }
+ if(!round.claims.length)claims.textContent='Sin solicitudes';
+}
+
+function renderHost(round){
+ if($('settings').parentElement!==$('hostsettings')){
+  $('hostsettings').append($('settings'));
+  for(const topic of $('topics').querySelectorAll('input'))topic.checked=round.topics.includes(topic.value);
+  $('size').value=round.n;
+ }
+ $('draw').disabled=round.count>=round.total;
+ $('history').textContent=round.history.map((item,i)=>(i+1)+'. '+item.q+' = '+item.a).join('\n');
+ $('roster').textContent=round.roster.map(player=>player.id+' · '+player.name+(player.connected?'':' (desconectado)')).join(' | ')||'Esperando alumnos';
+ renderClaims(round);
+}
+
+function renderCard(round){
+ $('cardid').textContent='Cartón '+round.id;
+ const grid=$('grid');
+ grid.style.gridTemplateColumns='repeat('+round.n+',minmax(0,1fr))';
+ const focusIndex=Array.from(grid.children).indexOf(document.activeElement);
+ grid.replaceChildren();
+ round.card.forEach((value,i)=>{
+  const cell=document.createElement('button');
+  cell.type='button';
+  fmt(cell,value);
+  const marked=round.marked.includes(i);
+  cell.classList.toggle('marked',marked);
+  cell.setAttribute('aria-pressed',String(marked));
+  cell.onclick=()=>call('mark',{i,round:round.round});
+  grid.append(cell);
+ });
+ grid.children[focusIndex]?.focus({preventScroll:true});
+}
+
+socket.on('state',round=>{
+ state=round;
+ document.body.dataset.screen='play';
+ document.body.dataset.role=round.role;
+ $('entry').hidden=true;
+ $('play').hidden=false;
+ $('room').textContent='Sala '+round.code;
+ const participants=round.players===1?'1 alumno':round.players+' alumnos';
+ $('count').textContent='Ronda '+round.round+' · '+participants+' · '+round.count+'/'+round.total+' bolas';
+ $('operation').classList.toggle('waiting',!round.operation);
+ fmt($('operation-text'),round.operation||'Esperando la primera bola');
+ const host=round.role==='host';
+ $('host').hidden=!host;
+ $('student').hidden=host;
+ if(host)renderHost(round);
+ else renderCard(round);
+});
+}
+</script>
+</body>
+</html>
