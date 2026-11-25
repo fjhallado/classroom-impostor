@@ -24,6 +24,7 @@ body {
 .site-header-inner { min-height: 61px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .brand { color: var(--text); text-decoration: none; font-size: 1.05rem; font-weight: 800; }
 .back-link { color: var(--blue); font-size: .88rem; text-underline-offset: .24em; }
+.site-credit { padding: 14px 0 24px; border-top: 1px solid #334d70; color: var(--muted); font-size: .85rem; line-height: 1.5; }
 .game-title { display: none; font-weight: 650; color: var(--blue); text-align: right; }
 main { padding-block: 26px 46px; }
 h1, h2, p { margin: 0; }
