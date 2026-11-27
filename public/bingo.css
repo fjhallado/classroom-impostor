@@ -20,12 +20,7 @@ body {
  background: radial-gradient(ellipse at 78% 0, #262653, transparent 44rem), var(--background);
 }
 .shell { width: min(1180px, 100% - 48px); margin-inline: auto; }
-.site-header { border-bottom: 1px solid #293e5c; background: #0e192e; }
-.site-header-inner { min-height: 61px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.brand { color: var(--text); text-decoration: none; font-size: 1.05rem; font-weight: 800; }
-.back-link { color: var(--blue); font-size: .88rem; text-underline-offset: .24em; }
 .site-credit { padding: 14px 0 24px; border-top: 1px solid #334d70; color: var(--muted); font-size: .85rem; line-height: 1.5; }
-.game-title { display: none; font-weight: 650; color: var(--blue); text-align: right; }
 main { padding-block: 26px 46px; }
 h1, h2, p { margin: 0; }
 h2 { font-size: 1.35rem; letter-spacing: -.025em; }
@@ -125,8 +120,7 @@ legend { margin-bottom: 9px; padding: 0; }
 .topics label:has(input:checked) { border-color: #86baf1; background: #223f66; }
 .topics input { flex: none; width: 16px; height: 16px; margin: 0; accent-color: var(--blue); }
 
-body[data-screen="play"] .bingo-cover, body[data-screen="play"] .back-link { display: none; }
-body[data-screen="play"] .game-title { display: block; }
+body[data-screen="play"] .bingo-cover { display: none; }
 body[data-screen="play"] main { padding-top: 5px; }
 .room-bar {
  display: flex;
