@@ -137,7 +137,7 @@ if(!socket){
 let state=null,session=null;
 const sessionKey='mad-bingo';
 try{session=JSON.parse(sessionStorage.getItem(sessionKey))}catch{}
-const names={enteros:'Números enteros',combinadas:'Operaciones combinadas',fracciones:'Suma de fracciones',productos:'Multiplicaciones y divisiones',potencias:'Potencias',ecuaciones:'Ecuaciones de primer grado'};
+const names={enteros:'Operaciones con enteros',combinadas:'Operaciones combinadas con enteros',fracciones:'Suma de fracciones',productos:'Multiplicaciones y divisiones',potencias:'Potencias',ecuaciones:'Ecuaciones de primer grado'};
 for(let [k,v] of Object.entries(names)){let l=document.createElement('label'),i=document.createElement('input');i.type='checkbox';i.value=k;i.checked=k==='enteros';l.append(i,document.createTextNode(v));$('topics').append(l)}
 const settings=()=>({topics:[...$('topics').querySelectorAll('input:checked')].map(i=>i.value),level:Number($('level').value),n:Number($('size').value)});
 function call(event,data={},done,onError=say){

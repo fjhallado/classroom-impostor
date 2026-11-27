@@ -1,4 +1,7 @@
 const crypto=require('crypto');
+const BALL_COUNT=36;
+const INTEGER_TOPICS=new Set(['enteros','combinadas']);
+
 module.exports=function(io){
  const ns=io.of('/bingo'), rooms=new Map();
  const rnd=(a,b)=>crypto.randomInt(a,b+1), token=()=>crypto.randomBytes(24).toString('hex');
@@ -6,15 +9,54 @@ module.exports=function(io){
  const gcd=(a,b)=>b?gcd(b,a%b):Math.abs(a);
  const frac=(a,b)=>{let g=gcd(a,b);return b/g===1?String(a/g):a/g+'/'+b/g};
  const s=x=>x<0?'('+x+')':String(x);
+
+ function integerOperation(level,answer=rnd(1,BALL_COUNT)){
+  const limit=15*level+5;
+  const left=rnd(answer-limit,limit);
+  const subtract=rnd(0,1)===1;
+  const right=subtract?left-answer:answer-left;
+  return [s(left)+(subtract?' − ':' + ')+s(right),answer];
+ }
+
+ function combinedOperation(level,answer=rnd(1,BALL_COUNT)){
+  const multiplier=rnd(2,5+level);
+  const factor=Math.floor(answer/multiplier)+rnd(-level,level);
+  const offset=answer-factor*multiplier;
+  if(level===1)return [s(offset)+' + '+s(factor)+' × '+multiplier,answer];
+
+  const term=rnd(-8*level,8*level);
+  const product='('+s(factor+term)+' − '+s(term)+') × '+multiplier;
+  const adjustment=offset<0?' − '+(-offset):offset>0?' + '+offset:'';
+  return [product+adjustment,answer];
+ }
+
  const generators={
- enteros:l=>{let a=rnd(-15*l,15*l),b=rnd(-15*l,15*l),p=rnd(0,1);return [s(a)+(p?' + ':' − ')+s(b),p?a+b:a-b]},
- combinadas:l=>{let a=rnd(-10*l,10*l),b=rnd(-8*l,8*l),c=rnd(2,5+l);return l===1?[s(a)+' + '+s(b)+' × '+c,a+b*c]:['('+s(a)+' − '+s(b)+') × '+c,(a-b)*c]},
+ enteros:integerOperation,
+ combinadas:combinedOperation,
  fracciones:l=>{let a=rnd(1,5*l),b=rnd(2,5+l),c=rnd(1,5*l),d=l===1?b:rnd(2,5+l);return [a+'/'+b+' + '+c+'/'+d,frac(a*d+c*b,b*d)]},
  productos:l=>{let a=rnd(1,10*l),b=rnd(2,9),p=rnd(0,1);return p?[a+' × '+b,a*b]:[a*b+' ÷ '+b,a]},
  potencias:l=>{let a=rnd(1,12*l),b=rnd(2,3);return [a+(b===2?'²':'³'),a**b]},
  ecuaciones:l=>{let a=rnd(2,8),x=rnd(-20*l,20*l),b=rnd(-10,10);return [a+'x '+(b<0?'− ':'+ ')+Math.abs(b)+' = '+(a*x+b),x]}
  };
- function pool(topics,l,n){let m=new Map();for(let i=0;i<12000&&m.size<Math.max(36,n*n+12);i++){let [q,a]=generators[topics[rnd(0,topics.length-1)]](l);a=String(a);if(!m.has(a))m.set(a,{q,a})}if(m.size<n*n)throw Error('No hay suficientes resultados');return shuffle([...m.values()])}
+ function pool(topics,level,size){
+  const chooseTopic=()=>topics[rnd(0,topics.length-1)];
+  if(topics.every(topic=>INTEGER_TOPICS.has(topic))){
+   const balls=Array.from({length:BALL_COUNT},(_,index)=>{
+    const [question,answer]=generators[chooseTopic()](level,index+1);
+    return {q:question,a:String(answer)};
+   });
+   return shuffle(balls);
+  }
+  const byAnswer=new Map();
+  const limit=Math.max(BALL_COUNT,size*size+12);
+  for(let i=0;i<12000&&byAnswer.size<limit;i++){
+   const [question,answer]=generators[chooseTopic()](level);
+   const value=String(answer);
+   if(!byAnswer.has(value))byAnswer.set(value,{q:question,a:value});
+  }
+  if(byAnswer.size<size*size)throw Error('No hay suficientes resultados');
+  return shuffle([...byAnswer.values()]);
+ }
  function card(r){return shuffle(r.pool).slice(0,r.n*r.n).map(x=>x.a)}
  function send(r){r.touched=Date.now();let base={code:r.code,round:r.round,n:r.n,count:r.drawn.length,total:r.pool.length,operation:r.drawn.at(-1)?.q||'',players:r.players.size,topics:r.topics};for(let [id,p] of r.players){if(p.sid)ns.to(p.sid).emit('state',{...base,role:'player',card:p.card,marked:[...p.marked],id:p.id})}if(r.sid)ns.to(r.sid).emit('state',{...base,role:'host',history:r.drawn,claims:r.claims,roster:[...r.players.values()].map(p=>({id:p.id,name:p.name,connected:!!p.sid}))})}
  function settings(d){let topics=Array.isArray(d.topics)?[...new Set(d.topics.filter(x=>Object.hasOwn(generators,x)))]:[];if(!topics.length)throw Error('Elige una temática');let l=[1,2,3].includes(d.level)?d.level:2,n=[3,4,5].includes(d.n)?d.n:3;return {topics,l,n,pool:pool(topics,l,n)}}
